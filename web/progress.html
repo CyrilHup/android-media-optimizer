@@ -1,0 +1,516 @@
+<!doctype html><html lang="fr-CA"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="Cache-Control" content="no-store"><title>Progression</title>
+<style>
+:root{color-scheme:light dark;font:14px/1.4 system-ui,sans-serif}body{max-width:1240px;margin:0 auto;padding:18px}*{box-sizing:border-box}p{margin:5px 0}main{display:grid;gap:14px}.toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.controls{display:flex;gap:7px;flex-wrap:wrap}button{font:inherit;border:1px solid color-mix(in srgb,currentColor 25%,transparent);border-radius:7px;padding:7px 12px;color:inherit;background:color-mix(in srgb,currentColor 5%,transparent);cursor:pointer}button.primary{background:#287a58;color:white;border-color:#287a58}button:disabled{opacity:.4;cursor:default}.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.card{min-width:0;border:1px solid color-mix(in srgb,currentColor 18%,transparent);border-radius:9px;padding:12px}.label,.muted,.bar-caption{color:color-mix(in srgb,currentColor 65%,transparent)}.label{font-size:12px}.value{display:block;font-size:23px;font-weight:650}.metrics .card:first-child .value{color:#48ad83}.overall{display:grid;gap:4px}.overall p{margin:0}.lanes{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}.lanes .value{font-size:15px;min-height:42px;margin-top:7px;font-weight:550}.filename{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px}.bar-caption{font-size:12px}progress{width:100%;height:10px;display:block;accent-color:#3a8;margin:8px 0}.error{color:#e66;overflow-wrap:anywhere}.message{margin:0}.section-title{font-size:13px;font-weight:650;margin:4px 0 0}.photo-worker{margin-top:10px}.photo-worker .value{font-size:15px}.photo-row{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}.photo-row strong{font-weight:600}.photo-row span{font-size:12px}.photo-progress{height:6px;margin-bottom:0}[hidden]{display:none!important}@media(max-width:700px){body{padding:12px}.lanes{grid-template-columns:1fr}.lanes .value{min-height:0}.metrics{grid-template-columns:repeat(2,1fr)}}
+</style></head><body><main>
+<div class="toolbar"><strong id="service-state">Connexion…</strong><div class="controls"><button id="pause-button" data-action="pause" disabled>Pause</button><button id="resume-button" class="primary" data-action="resume" disabled>Reprendre</button><button id="stop-button" data-action="stop" disabled>Arrêter</button></div></div>
+<p id="service-error" class="error" hidden></p><p id="action-message" class="message" role="status" hidden></p>
+<div class="section-title">Vidéos</div><section class="metrics" aria-label="Résultats"><div class="card"><span class="label">Récupérés</span><strong class="value" id="saved">—</strong></div><div class="card"><span class="label">Vidéos remplacées</span><strong class="value" id="verified">—</strong></div><div class="card"><span class="label">Restantes</span><strong class="value" id="remaining">—</strong></div><div class="card"><span class="label">Original conservé</span><strong class="value" id="skipped">—</strong></div></section>
+<section class="overall" aria-label="Progression globale"><progress id="overall-progress" max="100" hidden></progress><p class="bar-caption" id="overall-caption"></p><p class="bar-caption" id="overall-eta"></p></section>
+<section class="lanes" aria-label="Travailleurs"><div class="card" id="lane-nvenc-card" hidden><span class="label">NVIDIA</span><strong class="value" id="lane-nvenc-phase">—</strong><p class="filename muted" id="lane-nvenc-path"></p><progress id="lane-nvenc-progress" max="100" aria-label="Progression NVIDIA"></progress><p class="bar-caption" id="lane-nvenc-caption"></p></div><div class="card" id="lane-amf-card" hidden><span class="label">AMD</span><strong class="value" id="lane-amf-phase">—</strong><p class="filename muted" id="lane-amf-path"></p><progress id="lane-amf-progress" max="100" aria-label="Progression AMD"></progress><p class="bar-caption" id="lane-amf-caption"></p></div><div class="card" id="lane-cpu-card" hidden><span class="label">CPU</span><strong class="value" id="lane-cpu-phase">—</strong><p class="filename muted" id="lane-cpu-path"></p><progress id="lane-cpu-progress" max="100" aria-label="Progression CPU"></progress><p class="bar-caption" id="lane-cpu-caption"></p></div></section><section id="photos-card" hidden aria-label="Photos CPU"><div class="toolbar"><strong class="section-title">Photos · CPU</strong><span class="muted" id="photos-status"></span></div>
+<section class="metrics" style="margin-top:10px"><div class="card"><span class="label">Récupérés</span><strong class="value" id="photo-saved">0 Go</strong></div><div class="card"><span class="label">Candidates / inventoriées</span><strong class="value" id="photo-candidates">—</strong></div><div class="card"><span class="label">Photos modifiées</span><strong class="value" id="photo-replaced">0</strong></div><div class="card"><span class="label">Restantes</span><strong class="value" id="photo-remaining">—</strong></div></section>
+<section class="overall" style="margin-top:12px" aria-label="Progression globale des photos"><progress id="photo-overall-progress" max="100" value="0" aria-label="Volume photo traité"></progress><p class="bar-caption" id="photo-overall-caption"></p></section><div class="card photo-worker"><span class="label" id="photo-phase-label">CPU · WebP / JPEG HDR</span><strong class="value" id="photos-summary"></strong><progress id="photo-phase-progress" max="100" value="0" aria-label="Étape photo active"></progress><p class="bar-caption" id="photo-phase-caption"></p><p class="bar-caption" id="photos-coverage"></p><p class="bar-caption" id="photos-results"></p><details style="margin-top:8px"><summary>Temps et motifs de conservation</summary><p class="bar-caption" id="photo-timing-caption"></p><p class="bar-caption" id="photo-last-timing"></p><p class="bar-caption" id="photo-replacement-parts"></p><p class="bar-caption" id="photo-kept-reasons"></p></details></div></section><div hidden aria-hidden="true"><span id="photo-pilot-label"></span><span id="photo-prepared"></span><span id="photo-excluded"></span><progress id="photos-progress" max="100"></progress><span id="current"></span><span id="feed-status"></span><span id="file-eta"></span><span id="file-eta-note"></span><span id="parallel-mode"></span><span id="phase"></span><span id="phase-caption"></span><span id="phase-card"></span><span id="phase-eta"></span><span id="phase-progress"></span><span id="phone-transfer-caption"></span><span id="phone-transfer-card"></span><span id="phone-transfer-path"></span><span id="phone-transfer-progress"></span><span id="prefetch-caption"></span><span id="prefetch-card"></span><span id="prefetch-path"></span><span id="prefetch-progress"></span><span id="processed"></span><span id="skip-reasons"></span><span id="updated"></span><span id="worker-state"></span></div></main>
+  <script>
+    "use strict";
+    const el = (id) => document.getElementById(id);
+    const data = { worker: null, transactions: null, queue: null, receipts: null, api: null, photos: null, photoPlan: null };
+    let actionPending = false;
+    let actionMessage = "Les commandes deviennent disponibles lorsque le service répond.";
+    let actionFailed = false;
+    let polling = false;
+
+    const number = (value) => {
+      if (typeof value === "number" && Number.isFinite(value)) return value;
+      if (typeof value === "string" && value.trim() !== "" && Number.isFinite(Number(value))) return Number(value);
+      return null;
+    };
+    const count = (value) => Array.isArray(value) ? value.length : number(value) === null ? null : Math.max(0, Math.floor(number(value)));
+    const fmtCount = (value) => value === null || value === undefined ? "—" : new Intl.NumberFormat("fr-CA", { maximumFractionDigits: 0 }).format(value);
+    const fmtBytes = (value) => new Intl.NumberFormat("fr-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value / 1_000_000_000) + " Go";
+    function fmtDuration(seconds) {
+      if (seconds === null || !Number.isFinite(seconds)) return "—";
+      if (seconds < 10) return "moins de 10 s";
+      if (seconds < 60) return Math.ceil(seconds / 5) * 5 + " s";
+      if (seconds < 3600) return Math.ceil(seconds / 60) + " min";
+      const minutes = Math.ceil(seconds / 60);
+      const hours = Math.floor(minutes / 60);
+      return hours + " h" + (minutes % 60 ? " " + String(minutes % 60).padStart(2, "0") : "");
+    }
+
+    function drawETA() {
+      const worker = data.worker || {};
+      const eta = worker.eta || {};
+      const age = Math.max(0, (Date.now() - Date.parse(worker.updated_utc || "")) / 1000);
+      const paused = eta.suspended || worker.status !== "running" || !data.api || data.api.state !== "running";
+      const stale = !Number.isFinite(age) || age > 20;
+      const elapsed = paused || stale ? 0 : age;
+      const range = (item) => {
+        const low = Math.max(0, item.low_seconds - elapsed);
+        const high = Math.max(low, item.high_seconds - elapsed);
+        const a = fmtDuration(low), b = fmtDuration(high);
+        return a === b ? a : a + " à " + b;
+      };
+      const calibration = Math.min(3, eta.calibration_completed_files || 0) + "/3 fichiers validés avec ces GPU";
+      if (worker.status === "complete") {
+        el("overall-eta").textContent = "Traitement terminé.";
+        el("file-eta").textContent = "Terminé";
+        el("file-eta-note").textContent = "";
+        el("phase-eta").textContent = "";
+        return;
+      }
+      el("overall-eta").textContent = eta.global
+        ? "Durée active restante estimée : " + range(eta.global) + " · " + eta.global.samples + " fichiers mesurés" + (paused ? " · estimation figée pendant l’arrêt ou l’attente" : stale ? " · dernière estimation connue" : "") + ". Hors pauses, veille et déconnexions futures."
+        : "Durée globale : calibration — " + calibration + ". Elle apparaîtra après les premières validations, sans utiliser les anciens temps CPU.";
+      el("file-eta").textContent = eta.file ? range(eta.file) : "Calibration…";
+      el("file-eta-note").textContent = eta.file
+        ? "Fourchette indicative, transferts et vérifications inclus." + (paused ? " Estimation figée." : stale ? " Dernière estimation connue." : "")
+        : "Les étapes sont chronométrées ; estimation complète après 3 fichiers validés.";
+      el("phase-eta").textContent = eta.phase
+        ? "Étape : environ " + fmtDuration(Math.max(0, eta.phase.remaining_seconds - elapsed)) + " restantes" + (eta.phase.basis === "selected_samples" ? " — estimation depuis les extraits" : eta.phase.basis === "historical_phase" ? " — depuis les étapes comparables déjà mesurées" : " — depuis la progression mesurée") + (paused ? " · estimation figée" : stale ? " · dernière estimation connue" : "")
+        : paused ? "Les estimations reprendront avec le traitement." : "Durée de l’étape : mesure en cours…";
+    }
+
+    function drawPipeline() {
+      const worker = data.worker || {};
+      const prefetch = worker.backup_prefetch;
+      const workers = Array.isArray(worker.workers) ? worker.workers : [];
+      const transfers = workers.map(item => item.phone_transfer).filter(Boolean);
+      const transfer = workers.length
+        ? transfers.find(item => ["staging", "stage_verified_replacing", "replaced_verifying", "verified_phone_replacement"].includes(item.transaction_status)) || transfers[0] || null
+        : worker.phone_transfer;
+      for (const key of ["nvenc", "amf", "cpu"]) {
+        const lane = workers.find(item => item.lane === key);
+        el("lane-" + key + "-card").hidden = !lane;
+        if (!lane) continue;
+        const progress = el("lane-" + key + "-progress");
+        const percent = number(lane.phase_progress_percent);
+        const active = lane.status === "running" || lane.status === "waiting_for_phone";
+        el("lane-" + key + "-phase").textContent = (stateLabels[lane.status] || lane.status || "En préparation") + " · " + phaseLabel(lane.phase);
+        el("lane-" + key + "-path").textContent = lane.current_file ? lane.current_file.split("/").pop() : "—";
+        el("lane-" + key + "-path").title = lane.current_file || "";
+        progress.hidden = !active;
+        if (percent === null) progress.removeAttribute("value");
+        else progress.value = Math.max(0, Math.min(100, percent));
+        const eta = number(lane.eta && lane.eta.phase && lane.eta.phase.remaining_seconds);
+        el("lane-" + key + "-caption").textContent = (percent === null ? "Progression de l’étape non chiffrée" : percent.toLocaleString("fr-CA", {maximumFractionDigits:1}) + "% de l’étape") + (eta === null || !active ? "" : " · environ " + fmtDuration(eta) + " restantes") + (lane.error ? " · " + lane.error : "");
+      }
+      const pipeline = !!worker.pipeline_mode;
+      el("parallel-mode").hidden = !pipeline;
+      el("parallel-mode").textContent = worker.parallel_encoding_enabled
+        ? "Encodages simultanés activés : jusqu’à trois vidéos indépendantes. Le CPU récupère les vidéos en attente de 50 Mio ou moins ; une réservation unique empêche les doublons. Chaque file privilégie son encodeur ; un repli peut changer l’encodeur utilisé. Un seul remplacement sur le téléphone à la fois."
+        : "Un encodage à la fois : NVIDIA en priorité, AMD ou CPU en repli. Les copies et l’envoi peuvent avancer en parallèle. L’encodage simultané NVIDIA + AMD + CPU n’est pas activé.";
+      el("phone-transfer-card").hidden = !pipeline && !transfer;
+      el("prefetch-card").hidden = !!worker.parallel_encoding_enabled || !pipeline && !prefetch;
+      el("phone-transfer-progress").hidden = !transfer;
+      el("phone-transfer-progress").removeAttribute("value");
+      el("prefetch-progress").hidden = !prefetch;
+      if (transfer) {
+        el("phone-transfer-path").textContent = transfer.phone_path;
+        const phases = {checking_original:"Contrôle de l’original",staging:"Envoi et contrôle de la copie",stage_verified_replacing:"Remplacement du fichier",replaced_verifying:"Vérification du fichier et de la galerie",verified_phone_replacement:"Remplacement vérifié",complete_temporary_copies_removed:"Terminé"};
+        const age = Math.max(0, (Date.now() - Date.parse(worker.updated_utc || "")) / 1000);
+        const extra = Number.isFinite(age) && age < 20 && data.api && ["running", "stopping"].includes(data.api.state) ? age : 0;
+        const seconds = (number(transfer.elapsed_seconds) || 0) + extra;
+        const eta = number(transfer.eta_remaining_seconds);
+        el("phone-transfer-caption").textContent = (phases[transfer.transaction_status] || "Envoi et vérifications") + " · " + fmtDuration(seconds) + " écoulées" + (eta === null ? " · ETA en calibration" : " · environ " + fmtDuration(Math.max(0, eta - extra)) + " restantes") + (transfer.error ? " · " + transfer.error : "");
+      } else {
+        el("phone-transfer-path").textContent = "Au repos";
+        el("phone-transfer-caption").textContent = "En attente d’une copie entièrement validée sur le PC.";
+      }
+      if (prefetch) {
+        el("prefetch-path").textContent = prefetch.phone_path;
+        el("prefetch-progress").value = number(prefetch.progress_percent) || 0;
+        el("prefetch-caption").textContent = (number(prefetch.progress_percent) || 0).toLocaleString("fr-CA", {maximumFractionDigits:1}) + "% · cette copie sera vérifiée avant encodage";
+      } else {
+        el("prefetch-path").textContent = "Au repos";
+        el("prefetch-caption").textContent = "La copie du prochain original peut démarrer pendant un encodage, selon l’espace disponible.";
+      }
+    }
+    const stateLabels = {
+      running: "En cours", paused: "En pause", stopped: "Arrêté",
+      attention_required: "Attention requise", complete: "Terminé",
+      starting: "Démarrage", stopping: "Arrêt en cours"
+    };
+
+    function recordsFor(value, key) {
+      if (!value || !Array.isArray(value[key])) return [];
+      return value[key].filter((row) => row && typeof row === "object");
+    }
+
+    function latestByPath(rows) {
+      const latest = new Map();
+      rows.forEach((row, index) => {
+        if (typeof row.phone_path !== "string" || !row.phone_path) return;
+        const parsed = Date.parse(row.started_utc || row.updated_utc || "");
+        const stamp = Number.isFinite(parsed) ? parsed : -Infinity;
+        const previous = latest.get(row.phone_path);
+        if (!previous || stamp >= previous.stamp || (stamp === -Infinity && index > previous.index)) {
+          latest.set(row.phone_path, { row, stamp, index });
+        }
+      });
+      return Array.from(latest.values(), (item) => item.row);
+    }
+
+    function verifiedTransactions() {
+      const rows = recordsFor(data.transactions, "transactions").filter((row) => row.phone_hash_verified === true);
+      return latestByPath(rows).concat(rows.filter((row) => typeof row.phone_path !== "string" || !row.phone_path));
+    }
+
+    function latestReceipts() {
+      return latestByPath(recordsFor(data.receipts, "records"));
+    }
+
+    function skippedCount() {
+      const explicit = count(data.worker && data.worker.skipped_files);
+      if (explicit !== null) return explicit;
+      return latestReceipts().filter((row) => typeof row.status === "string" && row.status.startsWith("skipped_")).length;
+    }
+
+    function receiptFinishedCount() {
+      return latestReceipts().filter((row) => typeof row.status === "string" && (row.status === "completed" || row.status.startsWith("skipped_"))).length;
+    }
+
+    function totalCandidates() {
+      const explicit = count(data.worker && data.worker.total_candidates);
+      if (explicit !== null) return explicit;
+      const queueRows = recordsFor(data.queue, "records");
+      if (queueRows.length) return queueRows.length;
+      const remaining = count(data.worker && data.worker.remaining_candidates);
+      const processed = count(data.worker && data.worker.processed_candidates);
+      return remaining !== null && processed !== null ? remaining + processed : null;
+    }
+
+    function processedCandidates() {
+      const explicit = count(data.worker && data.worker.processed_candidates);
+      if (explicit !== null) return explicit;
+      const completed = count(data.worker && data.worker.completed_files);
+      const skipped = skippedCount();
+      if (completed !== null) return completed + (skipped || 0);
+      const receipts = receiptFinishedCount();
+      if (receipts > 0) return receipts;
+      const total = totalCandidates();
+      const remaining = count(data.worker && data.worker.remaining_candidates);
+      return total !== null && remaining !== null ? Math.max(0, total - remaining) : null;
+    }
+
+    function drawOverall() {
+      const worker = data.worker || {};
+      const totalFiles = totalCandidates();
+      const processedFiles = processedCandidates();
+      const explicitTotalBytes = number(worker.total_original_bytes);
+      const queueRows = recordsFor(data.queue, "records");
+      const queueBytes = queueRows.reduce((sum, row) => sum + Math.max(0, number(row.bytes) || 0), 0);
+      const totalBytes = explicitTotalBytes !== null ? explicitTotalBytes : queueBytes > 0 ? queueBytes : null;
+      const processedBytes = number(worker.processed_original_bytes);
+      let percent = null;
+      let caption = "Avancement global indisponible";
+
+      if (totalBytes !== null && totalBytes > 0 && processedBytes !== null) {
+        percent = Math.max(0, Math.min(100, processedBytes / totalBytes * 100));
+        caption = percent.toLocaleString("fr-CA", { maximumFractionDigits: 1 }) + "% · " + fmtBytes(Math.min(processedBytes, totalBytes)) + " / " + fmtBytes(totalBytes);
+      } else if (totalFiles !== null && totalFiles > 0 && processedFiles !== null) {
+        percent = Math.max(0, Math.min(100, processedFiles / totalFiles * 100));
+        caption = percent.toLocaleString("fr-CA", { maximumFractionDigits: 1 }) + "% · " + fmtCount(Math.min(processedFiles, totalFiles)) + " candidats traités sur " + fmtCount(totalFiles);
+      }
+
+      el("overall-progress").hidden = percent === null;
+      if (percent !== null) {
+        el("overall-progress").value = percent;
+        el("overall-progress").setAttribute("aria-valuenow", String(percent));
+      } else {
+        el("overall-progress").removeAttribute("aria-valuenow");
+      }
+      el("overall-caption").textContent = caption;
+      el("processed").textContent = processedFiles === null ? "—" : fmtCount(processedFiles) + (totalFiles === null ? "" : " / " + fmtCount(totalFiles));
+      el("skipped").textContent = fmtCount(skippedCount());
+      const remaining = count(worker.remaining_candidates);
+      el("remaining").textContent = fmtCount(remaining !== null ? remaining : totalFiles !== null && processedFiles !== null ? Math.max(0, totalFiles - processedFiles) : null);
+    }
+
+    function drawTransactions() {
+      const rows = verifiedTransactions();
+      const saved = number(data.worker && data.worker.saved_bytes) ?? rows.reduce((sum, row) => {
+        const bytes = number(row.saved_bytes);
+        return bytes !== null && bytes > 0 ? sum + bytes : sum;
+      }, 0);
+      el("saved").textContent = (saved / 1_000_000_000).toLocaleString("fr-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " Go";
+      el("verified").textContent = fmtCount(count(data.worker && data.worker.completed_files) ?? rows.length);
+    }
+
+    function drawSkipReasons() {
+      const labels = {
+        skipped_dolby_vision_preservation_not_yet_validated: "Dolby Vision : préservation HDR à valider",
+          skipped_unsupported_dolby_vision_profile: "Profil Dolby Vision non pris en charge",
+          skipped_dolby_vision_validation_failed: "Contrôle des métadonnées Dolby Vision insuffisant",
+          skipped_encoder_error_after_all_encoders: "Aucun encodeur n’a pu traiter ce fichier",
+          skipped_timestamp_validation_failed: "Synchronisation audio/vidéo modifiée : original conservé",
+          skipped_media_validation_command_failed: "Validation multimédia impossible",
+        skipped_hdr_preservation_not_yet_validated: "HDR : préservation des couleurs à valider",
+        skipped_less_than_10_percent_saving: "Gain inférieur à 10 %",
+        skipped_no_safe_bitrate_budget: "Débit disponible insuffisant après conservation de l’audio",
+        skipped_quality_screen_after_all_encoders: "Contrôle qualité insuffisant après les essais",
+        skipped_full_encode_quality_mismatch: "Extraits acceptés, mais qualité du fichier complet insuffisante",
+        skipped_no_size_quality_combination: "Aucun compromis trouvé : qualité insuffisante aux petits débits, taille excessive aux grands",
+        skipped_preflight_time_budget: "Essais trop coûteux : original conservé pour un passage ciblé ultérieur",
+        skipped_unknown_colour_metadata: "Informations de couleur insuffisantes",
+        skipped_unsupported_pixel_format: "Format de pixels non pris en charge",
+        skipped_unsupported_codec_or_very_short: "Codec non pris en charge ou durée inférieure à 5 secondes",
+        skipped_computer_space_limit: "Espace temporaire insuffisant sur le PC",
+        skipped_changed_since_inventory: "Fichier modifié depuis l’inventaire"
+      };
+      const groups = new Map();
+      let retries = 0;
+      const policyVersion = number(data.worker && data.worker.policy_version) || 2;
+      if (data.worker && data.worker.skip_reasons) {
+        Object.entries(data.worker.skip_reasons).forEach(([reason, total]) => groups.set(reason, total));
+        retries = number(data.worker.pending_prior_skips) || 0;
+      } else {
+        latestReceipts().forEach(row => {
+          if (!String(row.status).startsWith("skipped")) return;
+          if ((row.policy_version || 1) < policyVersion) { retries++; return; }
+          groups.set(row.status, (groups.get(row.status) || 0) + 1);
+        });
+      }
+      const list = el("skip-reasons");
+      list.replaceChildren();
+      groups.forEach((total, reason) => {
+        const item = document.createElement("li");
+        item.textContent = fmtCount(total) + " — " + (labels[reason] || reason);
+        list.append(item);
+      });
+      if (retries || !groups.size) {
+        const item = document.createElement("li");
+        item.textContent = retries ? fmtCount(retries) + " ancien(s) refus en attente d’un nouvel essai ou en cours." : "Aucun fichier ignoré avec les nouveaux réglages pour le moment.";
+        list.append(item);
+      }
+    }
+
+    function drawPhase() {
+      const worker = data.worker || {};
+      const percent = number(worker.phase_progress_percent);
+      const hasProgress = percent !== null && percent >= 0 && percent <= 100;
+      const hasPhase = typeof worker.phase === "string" && !!worker.phase.trim();
+      el("phase-card").hidden = Array.isArray(worker.workers) && worker.workers.length > 0 || !hasPhase && !hasProgress;
+      el("phase").textContent = hasPhase ? phaseLabel(worker.phase) : "Étape en cours";
+      el("phase-progress").hidden = !hasProgress;
+      el("phase-caption").hidden = !hasProgress;
+      if (!hasProgress) {
+        el("phase-progress").removeAttribute("aria-valuenow");
+        el("phase-caption").textContent = "";
+        return;
+      }
+      el("phase-progress").value = percent;
+      el("phase-progress").setAttribute("aria-valuenow", String(percent));
+      el("phase-caption").textContent = percent.toLocaleString("fr-CA", { maximumFractionDigits: 1 }) + "% de l’étape active";
+    }
+
+    function phaseLabel(phase) {
+      if (typeof phase !== "string" || !phase.trim()) return "Étape en cours";
+      const text = phase.trim();
+      if (/^Backing up this batch to computer$/i.test(text)) return "Sauvegarde du lot sur l’ordinateur";
+      if (/^Checking backup\b/i.test(text)) return "Vérification de la sauvegarde";
+      if (/^Verifying original backup/i.test(text)) return "Vérification de la sauvegarde originale";
+      if (/^Reusing encoded copy/i.test(text)) return "Reprise de la copie déjà encodée et nouvelles vérifications";
+      if (/^Reusing verified sample preflight/i.test(text)) return "Reprise des essais déjà validés — contrôles du fichier complet conservés";
+      if (/^Preserving source colour/i.test(text)) return "Conservation des informations de couleur et du conteneur";
+      if (/^Full decode validation/i.test(text)) return "Vérification de la lecture du fichier complet";
+      if (/^Checking all frame timestamps/i.test(text)) return "Vérification des images et du son";
+      if (/^Checking Dolby Vision metadata/i.test(text)) return "Vérification HDR de toutes les images" + (text.includes("source") ? " de l’original" : " de la copie");
+      if (/^Comparing Dolby Vision metadata/i.test(text)) return "Comparaison des métadonnées HDR de toutes les images";
+      if (/^Testing (higher quality|adaptive bitrate)/i.test(text)) {
+        const rate = text.match(/bps(\d+)/i);
+        const encoder = /nvenc/.test(text) ? "NVIDIA" : /amf/.test(text) ? "AMD" : "CPU x265";
+        return "Test du débit adaptatif — " + encoder + (rate ? " · " + (Number(rate[1]) / 1000000).toLocaleString("fr-CA", {maximumFractionDigits: 2}) + " Mb/s" : "") + " · extrait " + (text.match(/section (\d+\/\d+)/i) || ["", ""])[1];
+      }
+      if (/^Encoding 1080p copy/i.test(text)) return "Encodage de la copie 1080p — " + (text.includes("x265") ? "CPU x265" : text.includes("nvenc") ? "GPU NVIDIA" : text.includes("amf") ? "GPU AMD" : "encodeur graphique");
+      const screening = text.match(/^Quality screening\s*(?:section\s*)?(\d+\s*\/\s*\d+)?$/i);
+      if (screening) return "Évaluation de la qualité" + (screening[1] ? " — section " + screening[1].replace(/\s/g, "") : "");
+      if (/^Validating\b/i.test(text)) return "Validation de la copie compressée";
+      if (/^Replacing\b/i.test(text)) return "Remplacement du fichier sur le téléphone";
+      if (/^Waiting for prefetched/i.test(text)) return "Attente de la copie anticipée du prochain original";
+      if (/^Waiting for shared disk budget/i.test(text)) return "Attente de la réserve d’espace disque partagée";
+      if (/^Waiting for previous phone transfer/i.test(text)) return "Copie locale prête — attente du créneau d’envoi";
+      if (/^Finishing in-flight/i.test(text)) return "Fin du transfert en cours avant l’arrêt sûr";
+      if (/^No unclaimed eligible videos remain/i.test(text)) return "Aucune vidéo admissible encore disponible pour ce travailleur";
+      if (/^Local validation complete/i.test(text)) return "Contrôles locaux terminés — envoi en arrière-plan";
+      if (/^Updating (?:the )?media/i.test(text)) return "Mise à jour de l’index multimédia";
+      if (/^Deleting (?:temporary )?(?:backup|copies)/i.test(text)) return "Suppression des copies temporaires";
+      return text;
+    }
+
+    function drawStatus() {
+      const api = data.api;
+      const worker = data.worker || {};
+      const serviceState = api && typeof api.state === "string" ? api.state : null;
+      el("service-state").textContent = serviceState ? (stateLabels[serviceState] || serviceState) : "Service en préparation ou hors ligne";
+      el("worker-state").textContent = typeof worker.status === "string" ? (stateLabels[worker.status] || worker.status) : "—";
+      el("current").textContent = typeof worker.current_file === "string" && worker.current_file ? worker.current_file : "—";
+      const updated = typeof worker.updated_utc === "string" ? worker.updated_utc : api && typeof api.service_started_utc === "string" ? api.service_started_utc : "";
+      el("updated").textContent = updated || "—";
+      el("updated").dateTime = updated;
+
+      const errors = [];
+      if (api && api.error) errors.push("Service : " + String(api.error));
+      if (worker.error) errors.push("Travailleur : " + String(worker.error));
+      const serviceError = el("service-error");
+      serviceError.hidden = errors.length === 0;
+      serviceError.textContent = errors.join(" · ");
+
+      const canControl = !!serviceState && !actionPending;
+      el("pause-button").disabled = !canControl || !["running","waiting_for_phone"].includes(serviceState);
+      el("resume-button").disabled = !canControl || !["paused", "stopped", "attention_required", "waiting_for_phone"].includes(serviceState);
+      el("stop-button").disabled = !canControl || ["stopped", "complete", "stopping"].includes(serviceState);
+      const action = el("action-message");
+      action.textContent = actionPending ? "Commande en cours…" : actionMessage;
+      action.className = "message " + (actionFailed ? "error" : "muted");
+      action.hidden = !actionFailed && !actionPending;
+    }
+
+    function drawPhotos() {
+      const photo = data.photos || {records:[]};
+      el("photos-card").hidden = !data.photos && !data.photoPlan;
+      if (!data.photos && !data.photoPlan) return;
+      const plan = data.photoPlan;
+      if (plan) {
+        const labels = {running:"En cours · CPU",waiting_for_phone:"Connexion au téléphone en attente",paused:"En pause",stopped:"Arrêté",complete:"Terminé",preparing:"Préparation locale",awaiting_approval:"En attente du feu vert",awaiting_gallery_review:"Pilote à vérifier dans les galeries",attention_required:"Attention requise",publishing_pilot:"Transfert du pilote · originaux conservés"};
+        el("photos-status").textContent = labels[plan.state] || plan.state;
+        el("photo-saved").textContent = plan.saved_bytes && plan.saved_bytes < 1_000_000_000 ? (plan.saved_bytes / 1_000_000).toLocaleString("fr-CA",{maximumFractionDigits:2}) + " Mo" : fmtBytes(plan.saved_bytes || 0);
+        el("photo-candidates").textContent = fmtCount(plan.total_candidates) + " / " + fmtCount(plan.inventory_files || 10509);
+        const formats = plan.outside_queue_formats || {};
+        const n = extension => formats[extension] && formats[extension].files || 0;
+        const exclusions = plan.exclusion_reasons || {};
+        el("photos-coverage").textContent = "Hors file : " + fmtCount(n('.webp')) + " WebP · " + fmtCount(n('.dng')) + " RAW · " + fmtCount(n('.heif')+n('.heic')) + " HEIC/HEIF · " + fmtCount(n('.gif')) + " GIF · " + fmtCount(exclusions.existing_destination || 0) + " collision";
+        const publishing = ["publishing_pilot","awaiting_gallery_review"].includes(plan.state);
+        el("photo-pilot-label").textContent = publishing ? "Copies sur le téléphone" : "Pilote préparé";
+        el("photo-prepared").textContent = fmtCount(publishing ? plan.published_pilot : plan.prepared_pilot) + "/" + fmtCount(plan.pilot_total);
+        el("photo-excluded").textContent = fmtCount(plan.excluded_known);
+        const doneBytes = number(plan.processed_original_bytes) || 0;
+        const totalBytes = number(plan.total_original_bytes) || 0;
+        const doneFiles = count(plan.completed) || 0;
+        el("photo-replaced").textContent = fmtCount(plan.phone_replacements || 0);
+        el("photo-remaining").textContent = fmtCount(Math.max(0,(plan.total_candidates || 0)-doneFiles));
+        const photoPercent = totalBytes ? Math.min(100,100*doneBytes/totalBytes) : 0;
+        el("photo-overall-progress").value = photoPercent;
+        el("photo-overall-caption").textContent = photoPercent.toLocaleString("fr-CA",{maximumFractionDigits:1}) + "% · " + fmtBytes(doneBytes) + " / " + fmtBytes(totalBytes) + " traités" + (["awaiting_approval","awaiting_gallery_review"].includes(plan.state) ? " · lot photo non démarré" : "");
+        el("photos-summary").textContent = plan.state === "awaiting_approval" ? "Pilote prêt · aucun transfert photo lancé" : plan.state === "awaiting_gallery_review" ? fmtCount(plan.published_pilot) + " copies de test sur le téléphone · vérifier la vue chronologique" : (plan.error || plan.current_file || (plan.state === "complete" ? "Toutes les candidates ont été traitées" : "En attente du prochain fichier"));
+        el("photo-phase-label").textContent = plan.phase || "CPU · WebP / JPEG HDR";
+        el("photo-phase-progress").value = plan.phase_percent || 0;
+        const kept = Object.values(plan.skip_reasons || {}).reduce((a,b)=>a+b,0);
+        el("photo-phase-caption").textContent = fmtCount(doneFiles) + " / " + fmtCount(plan.total_candidates) + " traitées · " + fmtCount(kept) + " originales conservées";
+        const stageLabels = {connection:"Connexion",phone_preflight:"Contrôle source",backup_download:"Téléchargement",backup_verification:"Sauvegarde",metadata_analysis:"Métadonnées",encoding:"Encodage",hdr_processing:"HDR",metadata_mux:"Métadonnées de sortie",quality_validation:"Qualité",decode_validation:"Décodage",phone_lock_wait:"Attente du téléphone occupé",phone_transaction:"Remplacement + galerie",wifi_wait:"Attente Wi-Fi",disk_wait:"Attente disque",kept_original_cleanup:"Conservation de l’original",candidate_reuse:"Copie réutilisée"};
+        const timingText = t => Object.entries(t && t.stages_seconds || {}).filter(([k,v])=>v>=0.05).map(([k,v])=>(stageLabels[k] || k)+" : "+v.toLocaleString("fr-CA",{maximumFractionDigits:1})+" s").join(" · ");
+        el("photo-timing-caption").textContent = "Fichier actuel — " + (timingText(plan.current_timing) || "Mesures disponibles après reprise");
+        el("photo-last-timing").textContent = plan.last_timing ? "Dernier résultat — " + timingText(plan.last_timing) : "";
+        const replacementMetrics = plan.current_timing && plan.current_timing.active_stage === "phone_transaction" ? plan.current_timing : plan.last_timing;
+        const replacementLabels = {upload:"Envoi",gallery_snapshot:"Fichier + entrée galerie",file_snapshot:"Fichier",gallery:"Index",scan:"Scan",read:"Lectures de fichiers",mutation:"Renommages / nettoyage"};
+        el("photo-replacement-parts").textContent = replacementMetrics && replacementMetrics.transaction_operations ? "Détail du remplacement — " + Object.entries(replacementMetrics.transaction_operations).map(([k,v])=>(replacementLabels[k] || k)+" : "+v.seconds.toLocaleString("fr-CA",{maximumFractionDigits:1})+" s").join(" · ") : "";
+
+        const reasons = {gain_below_10_percent:"gain inférieur à 10 %",numeric_quality_below_38db:"qualité insuffisante après les essais",existing_destination:"destination déjà présente",original_changed_since_inventory:"original modifié depuis l’inventaire",original_absent:"original absent",source_gallery_index_incomplete:"index source incomplet"};
+        el("photo-kept-reasons").textContent = Object.entries(plan.skip_reasons || {}).map(([k,v])=>fmtCount(v)+" : "+(reasons[k] || (k.startsWith("unmapped_metadata:") ? "métadonnées non prises en charge" : k))).join(" · ") || "Aucun refus avec les réglages actuels";
+        if (plan.current_timing && plan.current_timing.active_stage) {
+          const st=plan.current_timing.active_stage;
+          el("photo-phase-label").textContent=stageLabels[st] || plan.phase || st;
+          if (st==="backup_download" && plan.transfer_expected_bytes) {
+            const transferPercent=Math.min(100,100*(plan.transfer_received_bytes || 0)/plan.transfer_expected_bytes);
+            el("photo-phase-progress").value=transferPercent;
+            el("photo-phase-caption").textContent+=" · transfert "+transferPercent.toLocaleString("fr-CA",{maximumFractionDigits:0})+" %";
+          }
+        }
+        el("photos-progress").value = plan.pilot_total ? 100 * (publishing ? plan.published_pilot : plan.prepared_pilot) / plan.pilot_total : 0;
+        el("photos-progress").hidden = false;
+      } else {
+        el("photos-status").textContent = photo.state === "complete" ? "Terminé · aucune photo remplacée" : "En cours · 1 cœur CPU";
+        el("photos-progress").value = photo.total ? 100 * photo.completed / photo.total : 0;
+        el("photos-progress").hidden = photo.state === "complete";
+        el("photos-summary").textContent = fmtCount(photo.completed) + "/" + fmtCount(photo.total) + " échantillons · " + fmtCount(photo.inventory_files) + " images inventoriées";
+      }
+      const methods = new Map();
+      for (const record of photo.records || []) {
+        if (record.batch !== undefined && record.status !== "local_validation_passed") continue;
+        for (const test of record.tests || []) {
+          const item = methods.get(test.method) || {original:0, output:0, samples:0};
+          item.original += record.original_bytes; item.output += test.bytes; item.samples++;
+          methods.set(test.method, item);
+        }
+      }
+      const labels = {jpeg_q90:"JPEG 90",jpeg_q85:"JPEG 85",webp_q85:"WebP photo",webp_lossless:"WebP PNG sans perte"};
+      const results = [...methods].map(([method, item]) => (labels[method] || method) + " : " + Math.round(100 * (1 - item.output/item.original)) + " % de gain (" + item.samples + ")");
+      el("photos-results").hidden = !!(plan && plan.approval_required === false);
+      el("photos-results").textContent = results.length ? "Micro-lots locaux — " + results.join(" · ") : "";
+
+    }
+
+    function render() {
+      drawPhotos();
+      drawOverall();
+      drawTransactions();
+      drawSkipReasons();
+      drawPhase();
+      drawStatus();
+      drawETA();
+      drawPipeline();
+    }
+
+    async function getJson(url) {
+      const response = await fetch(url + (url.includes("?") ? "&" : "?") + "t=" + Date.now(), { cache: "no-store" });
+      if (!response.ok) throw new Error("HTTP " + response.status);
+      return response.json();
+    }
+
+    async function refresh() {
+      if (polling) return;
+      polling = true;
+      const urls = [
+        ["worker", "./worker-status.json"],
+        ["api", "/api/status"],
+        ["photos", "../phone-photo-analysis/webp-microbatches/status.json"],
+        ["photoPlan", "../phone-photo-compression-batches/status.json"]
+      ];
+      const results = await Promise.allSettled(urls.map(([, url]) => getJson(url)));
+      const failures = [];
+      results.forEach((result, index) => {
+        const [key, url] = urls[index];
+        if (result.status === "fulfilled") data[key] = result.value;
+        else failures.push(url + " : " + (result.reason && result.reason.message || "indisponible"));
+      });
+      render();
+      el("feed-status").textContent = failures.length
+        ? "Données locales partielles; dernières valeurs valides conservées. " + failures.join(" · ")
+        : "Tous les états sont à jour.";
+      polling = false;
+    }
+
+    async function sendAction(action) {
+      if (actionPending) return;
+      actionPending = true;
+      actionMessage = "Envoi de la commande…";
+      actionFailed = false;
+      render();
+      try {
+        const response = await fetch("/api/" + action, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({})
+        });
+        const raw = await response.text();
+        let body = {};
+        try { body = raw ? JSON.parse(raw) : {}; } catch { body = { message: raw }; }
+        if (!response.ok) throw new Error(body.error || body.message || body.detail || ("HTTP " + response.status));
+        actionMessage = body.message || body.status || "Commande acceptée par le service.";
+      } catch (error) {
+        actionFailed = true;
+        actionMessage = "La commande a échoué : " + (error && error.message || "erreur inconnue");
+      } finally {
+        actionPending = false;
+        render();
+        refresh();
+      }
+    }
+
+    document.querySelectorAll("button[data-action]").forEach((button) => {
+      button.addEventListener("click", () => sendAction(button.dataset.action));
+    });
+    refresh();
+    window.setInterval(refresh, 4000);
+    window.setInterval(() => {drawETA(); drawPipeline();}, 1000);
+  </script>
+</body>
+</html>
